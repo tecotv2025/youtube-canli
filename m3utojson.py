@@ -24,6 +24,9 @@ client_context = {
     }
 }
 
+# m3u8 klasörünü oluştur (zaten varsa hata vermez)
+os.makedirs("m3u8", exist_ok=True)
+
 # Video ID çıkarıcı
 def extract_video_id(youtube_url):
     parsed = urlparse.urlparse(youtube_url)
@@ -68,8 +71,8 @@ for channel in channels:
         hls_response = requests.get(hls_url, headers=headers)
         hls_response.raise_for_status()
 
-        # Kaydet
-        filename = f"{name}.m3u8"
+        # Dosya yolunu oluştur ve kaydet
+        filename = os.path.join("m3u8", f"{name}.m3u8")
         with open(filename, "w", encoding="utf-8") as f:
             f.write(hls_response.text)
 
