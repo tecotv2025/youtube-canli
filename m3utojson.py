@@ -18,7 +18,7 @@ params = {
 }
 client_context = {
     'client': {
-        'userAgent': headers['user-agent'],
+        'userAgent':'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36,gzip(gfe)',
         'clientName': 'WEB',
         'clientVersion': '2.20231101.05.00',
     }
