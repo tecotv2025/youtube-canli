@@ -5,6 +5,10 @@ on:
     - cron: '*/15 * * * *'  # Her 15 dakikada bir otomatik çalışır
   workflow_dispatch:       # İstediğimizde elle başlatabilmemiz için buton sağlar
 
+# Node.js 24 zorunluluğu uyarısını susturmak ve geleceğe hazırlamak için env ekliyoruz
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
+
 jobs:
   update:
     runs-on: ubuntu-latest
