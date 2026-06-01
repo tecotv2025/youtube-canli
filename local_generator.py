@@ -13,19 +13,17 @@ kanallar = [
     ("tgrthaber", "TGRT Haber", "https://www.youtube.com/@tgrthaber/live"),
     ("flashhaber", "Flash Haber", "https://www.youtube.com/@FlashHaberTV/live"),
     ("haberglobal", "Haber Global", "https://www.youtube.com/@haberglobal/live"),
-    ("tele1", "Tele 1", "https://www.youtube.com/@tele1tv/live"),
     ("tv100", "TV 100", "https://www.youtube.com/@tv100/live"),
     ("bloomberght", "Bloomberg HT", "https://www.youtube.com/@bloomberght/live"),
-    ("benguturk", "Bengü Türk", "https://www.youtube.com/@benguturk/live"),
-    ("krttv", "KRT TV", "https://www.youtube.com/@krttv/live"),
-    ("ulusalkanal", "Ulusal Kanal", "https://www.youtube.com/@ulusalkanal/live"),
+    ("benguturk", "Bengü Türk", "https://www.youtube.com/@tvbenguturk/live"),
+    ("krttv", "KRT TV", "https://www.youtube.com/@krtcanli/live"),
+    ("ulusalkanal", "Ulusal Kanal", "https://www.youtube.com/@ulusalkanalTV/live"),
     ("ulketv", "Ülke TV", "https://www.youtube.com/@ulketv/live"),
     ("ekoturk", "Eko Türk", "https://www.youtube.com/@ekoturktv/live"),
-    ("ekoltv", "Ekol TV", "https://www.youtube.com/@ekoltv/live"),
     ("tv24", "24 TV", "https://www.youtube.com/@YirmidortTV/live"),
     ("aspor", "A Spor", "https://www.youtube.com/@aspor/live"),
     ("htspor", "HT Spor", "https://www.youtube.com/@htspor/live"),
-    ("beinsportshaber", "Bein Spor Haber", "https://www.youtube.com/@beinsportshaber/live"),
+    ("beinsportshaber", "Bein Spor Haber", "https://www.youtube.com/@beINSPORTST%C3%BCrkiye/live"),
     ("cnbce", "CNBC-e", "https://www.youtube.com/@cnbce/live")
 ]
 
