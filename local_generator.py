@@ -23,6 +23,7 @@ kanallar = [
     ("tv24", "24 TV", "https://www.youtube.com/@YirmidortTV/live"),
     ("aspor", "A Spor", "https://www.youtube.com/@aspor/live"),
     ("htspor", "HT Spor", "https://www.youtube.com/@htspor/live"),
+    ("tvnet", "TV Net", "https://www.youtube.com/@tvnet/live"),
     ("beinsportshaber", "Bein Spor Haber", "https://www.youtube.com/@beINSPORTST%C3%BCrkiye/live"),
     ("cnbce", "CNBC-e", "https://www.youtube.com/@cnbce/live")
 ]
