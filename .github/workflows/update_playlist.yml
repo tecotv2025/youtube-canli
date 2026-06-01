@@ -3,11 +3,7 @@ name: Playlist Güncelle
 on:
   schedule:
     - cron: '*/15 * * * *'  # Her 15 dakikada bir otomatik çalışır
-  workflow_dispatch:       # İstediğimizde elle başlatabilmemiz için buton sağlar
-
-# Node.js 24 zorunluluğu uyarısını susturmak ve geleceğe hazırlamak için env ekliyoruz
-env:
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
+  workflow_dispatch:       # Elle başlatma butonu
 
 jobs:
   update:
@@ -32,8 +28,11 @@ jobs:
       - name: Playlist Oluştur
         run: python generate_playlist.py
 
+      # Üçüncü parti paket yerine doğrudan standart Git komutları kullanıyoruz
       - name: Değişiklikleri Kaydet ve Gönder
-        uses: stefanzweifel/git-auto-commit-action@v5
-        with:
-          commit_message: "Automated Playlist Update"
-          file_pattern: 'playlist.m3u'
+        run: |
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          git add playlist.m3u
+          # Eğer değişiklik varsa commit et ve pushla, yoksa hata vermeden geç
+          git diff --quiet && git diff --staged --quiet || (git commit -m "Automated Playlist Update" && git push)
