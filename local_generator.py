@@ -1,8 +1,12 @@
+#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 import os
+import sys
 import subprocess
+import shutil
+from datetime import datetime
 
-# Guncel ve dogrulanmis YouTube IPTV kanal listesi
+# -------------------- KANAL LİSTESİ --------------------
 kanallar = [
     ("trthaber", "TRT Haber", "https://www.youtube.com/@trthaber/live"),
     ("cnnturk", "CNN Turk", "https://www.youtube.com/@cnnturk/live"),
@@ -29,57 +33,123 @@ kanallar = [
     ("cnbce", "CNBC-e", "https://www.youtube.com/@cnbce/live")
 ]
 
-# Cikti klasorunu ayarla
-streams_dir = "streams"
-os.makedirs(streams_dir, exist_ok=True)
+# -------------------- AYARLAR --------------------
+STREAMS_DIR = "streams"
+PLAYLIST_FILE = "playlist.m3u"
+USER_AGENT = "VLC/3.0.20"
+YT_DLP_TIMEOUT = 30  # saniye
 
-ana_m3u = "#EXTM3U\n"
-print("Kanal linkleri toplaniyor...\n")
+# yt-dlp yolunu bul
+YT_DLP = shutil.which("yt-dlp")
+if not YT_DLP:
+    print("❌ yt-dlp bulunamadı! Lütfen yt-dlp'yi kurun: pip install yt-dlp")
+    sys.exit(1)
 
-for slug, isim, url in kanallar:
+# -------------------- FONKSİYONLAR --------------------
+def get_live_url(youtube_url):
+    """YouTube canlı yayın URL'sini alır."""
     try:
-        # Full path kullaniyoruz
         result = subprocess.run(
-            ["/usr/local/bin/yt-dlp", "-f", "best", "-g", url],
-            capture_output=True, text=True, timeout=20
+            [YT_DLP, "-f", "best", "-g", youtube_url],
+            capture_output=True,
+            text=True,
+            timeout=YT_DLP_TIMEOUT
         )
+        if result.returncode != 0:
+            return None, f"yt-dlp çıkış kodu {result.returncode}: {result.stderr.strip()}"
         link = result.stdout.strip()
-        
-        if link and link.startswith("http"):
-            # TiviMate ve VLC icin User-Agent parametreleri
-            tivimate_params = '#EXTVLCOPT:http-user-agent=VLC\n#EXTATTRIBUTES:User-Agent=VLC'
-            
-            # 1. Tekil m3u8 dosyasi uretimi
-            kanal_m3u_icerik = f"#EXTM3U\n{tivimate_params}\n#EXTINF:-1,{isim}\n{link}\n"
-            with open(f"{streams_dir}/{slug}.m3u8", "w", encoding="utf-8") as f:
-                f.write(kanal_m3u_icerik)
-                
-            # 2. Ana playlist.m3u dosyasina ekleme
-            ana_m3u += f'#EXTINF:-1 tvg-name="{isim}" group-title="Canli" http-user-agent="VLC",{isim}\n{link}\n'
-            print(f"OK: {isim} linki alindi.")
-        else:
-            print(f"HATA: {isim} - Yayin linki cozulemedi.")
+        if not link or not link.startswith("http"):
+            return None, f"Geçersiz link: {link}"
+        return link, None
+    except subprocess.TimeoutExpired:
+        return None, "Zaman aşımı"
     except Exception as e:
-        print(f"HATA: {isim} - Sorun olustu: {e}")
+        return None, str(e)
 
-# Toplu m3u listesini kaydet
-with open("playlist.m3u", "w", encoding="utf-8") as f:
-    f.write(ana_m3u)
+def write_channel_file(slug, name, url):
+    """Her kanal için ayrı .m3u8 dosyası oluşturur."""
+    content = f"""#EXTM3U
+#EXTINF:-1 tvg-name="{name}" http-user-agent="{USER_AGENT}",{name}
+{url}
+"""
+    filepath = os.path.join(STREAMS_DIR, f"{slug}.m3u8")
+    with open(filepath, "w", encoding="utf-8") as f:
+        f.write(content)
+    return filepath
 
-print("\nDosyalar hazirlandi. GitHub'a pushlaniyor...")
+def git_push():
+    """Değişiklikleri commit'leyip push'lar."""
+    try:
+        # Git config (sadece repo-local)
+        subprocess.run(["git", "config", "user.name", "Lokal Sunucu Proxy"], check=True, capture_output=True)
+        subprocess.run(["git", "config", "user.email", "sunucu@proxy.local"], check=True, capture_output=True)
 
-# Git Otomasyonu
-try:
-    subprocess.run(["git", "config", "user.name", "Lokal Sunucu Proxy"], check=True)
-    subprocess.run(["git", "config", "user.email", "sunucu@proxy.local"], check=True)
-    
-    subprocess.run(["git", "add", "-A"], check=True)
-    subprocess.run("git diff-index --quiet HEAD || git commit -m 'Lokal Otomatik Guncelleme'", shell=True, check=True)
-    
-    branch_check = subprocess.run(["git", "branch", "--show-current"], capture_output=True, text=True)
-    aktif_dal = branch_check.stdout.strip() or "main"
-    
-    subprocess.run(["git", "push", "origin", aktif_dal], check=True)
-    print(f"\n🚀 GitHub yuklemesi '{aktif_dal}' dalina basariyla tamamlandi!")
-except Exception as e:
-    print(f"\n❌ GitHub'a yuklenirken sorun cikti: {e}")
+        # Değişiklik var mı?
+        status = subprocess.run(["git", "status", "--porcelain"], capture_output=True, text=True)
+        if not status.stdout.strip():
+            print("📭 Hiç değişiklik yok, commit atlanıyor.")
+            return
+
+        # Add
+        subprocess.run(["git", "add", "-A"], check=True, capture_output=True)
+
+        # Commit (boş commit'i engelle)
+        commit_msg = f"Otomatik güncelleme - {datetime.now().strftime('%Y-%m-%d %H:%M')}"
+        commit = subprocess.run(
+            ["git", "commit", "-m", commit_msg],
+            capture_output=True,
+            text=True
+        )
+        if commit.returncode != 0:
+            if "nothing to commit" in commit.stderr:
+                print("📭 Değişiklik yok, commit atlanıyor.")
+                return
+            else:
+                raise subprocess.CalledProcessError(commit.returncode, "git commit", commit.stderr)
+
+        # Aktif dal
+        branch = subprocess.run(["git", "branch", "--show-current"], capture_output=True, text=True)
+        aktif_dal = branch.stdout.strip() or "main"
+
+        # Push
+        subprocess.run(["git", "push", "origin", aktif_dal], check=True, capture_output=True)
+        print(f"\n🚀 GitHub yüklemesi '{aktif_dal}' dalına başarıyla tamamlandı!")
+
+    except subprocess.CalledProcessError as e:
+        print(f"\n❌ Git işlemi başarısız: {e}")
+        if e.stderr:
+            print("Hata detayı:", e.stderr)
+    except Exception as e:
+        print(f"\n❌ Beklenmeyen hata: {e}")
+
+# -------------------- ANA PROGRAM --------------------
+def main():
+    os.makedirs(STREAMS_DIR, exist_ok=True)
+    ana_m3u = "#EXTM3U\n"
+    print("📡 Kanal linkleri toplanıyor...\n")
+
+    for slug, isim, url in kanallar:
+        print(f"➡️  {isim} ... ", end="", flush=True)
+        link, hata = get_live_url(url)
+        if link is None:
+            print(f"❌ {hata}")
+            continue
+
+        # Dosyayı yaz
+        write_channel_file(slug, isim, link)
+
+        # Ana playlist'e ekle
+        ana_m3u += f'#EXTINF:-1 tvg-name="{isim}" group-title="Canlı" http-user-agent="{USER_AGENT}",{isim}\n{link}\n'
+        print("✅ OK")
+
+    # Ana playlist'i kaydet
+    with open(PLAYLIST_FILE, "w", encoding="utf-8") as f:
+        f.write(ana_m3u)
+
+    print(f"\n📁 Dosyalar '{STREAMS_DIR}/' klasörüne ve '{PLAYLIST_FILE}' dosyasına kaydedildi.")
+
+    # Git push
+    git_push()
+
+if __name__ == "__main__":
+    main()
