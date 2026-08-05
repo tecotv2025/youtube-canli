@@ -34,10 +34,11 @@ kanallar = [
 ]
 
 # -------------------- AYARLAR --------------------
-STREAMS_DIR = "streams"          # Yedek dosyalar için (isteğe bağlı)
+CHANNELS_DIR = "channels"            # PHP dosyalarının bulunduğu klasör
 PLAYLIST_FILE = "playlist.m3u"
 USER_AGENT = "VLC/3.0.20"
-YT_DLP_TIMEOUT = 60              # Zaman aşımını artırdım (bazı kanallar yavaş)
+YT_DLP_TIMEOUT = 60
+GITHUB_RAW_BASE = "https://raw.githubusercontent.com/tecotv2025/youtube-canli/main"  # Repo adresiniz
 
 # yt-dlp yolunu bul
 YT_DLP = shutil.which("yt-dlp")
@@ -49,7 +50,6 @@ if not YT_DLP:
 def get_live_url(youtube_url):
     """YouTube canlı yayın URL'sini alır."""
     try:
-        # --geo-bypass eklendi, coğrafi engelleri aşmak için
         result = subprocess.run(
             [YT_DLP, "--geo-bypass", "-f", "best", "-g", youtube_url],
             capture_output=True,
@@ -67,15 +67,16 @@ def get_live_url(youtube_url):
     except Exception as e:
         return None, str(e)
 
-def write_channel_file(slug, name, url):
-    """Her kanal için ayrı .m3u8 dosyası oluşturur (yedek amaçlı)."""
-    content = f"""#EXTM3U
-#EXTINF:-1 tvg-name="{name}" http-user-agent="{USER_AGENT}",{name}
-{url}
+def write_php_file(slug, url):
+    """Kanal için PHP yönlendirme dosyası oluşturur/günceller."""
+    php_content = f"""<?php
+header("Location: {url}");
+exit;
+?>
 """
-    filepath = os.path.join(STREAMS_DIR, f"{slug}.m3u8")
+    filepath = os.path.join(CHANNELS_DIR, f"{slug}.php")
     with open(filepath, "w", encoding="utf-8") as f:
-        f.write(content)
+        f.write(php_content)
     return filepath
 
 def git_push():
@@ -119,9 +120,8 @@ def git_push():
 
 # -------------------- ANA PROGRAM --------------------
 def main():
-    os.makedirs(STREAMS_DIR, exist_ok=True)
-    ana_m3u = "#EXTM3U\n"
-    print("📡 Kanal linkleri toplanıyor...\n")
+    os.makedirs(CHANNELS_DIR, exist_ok=True)
+    print("📡 Kanal linkleri toplanıyor ve PHP dosyaları oluşturuluyor...\n")
 
     for slug, isim, url in kanallar:
         print(f"➡️  {isim} ... ", end="", flush=True)
@@ -130,18 +130,23 @@ def main():
             print(f"❌ {hata}")
             continue
 
-        # Yedek dosyayı oluştur (isteğe bağlı, kullanmasanız da olur)
-        write_channel_file(slug, isim, link)
-
-        # 🟢 Ana playlist'e DOĞRUDAN YouTube URL'sini ekle (TiviMate bunu seviyor)
-        ana_m3u += f'#EXTINF:-1 tvg-name="{isim}" group-title="Canlı" http-user-agent="{USER_AGENT}",{isim}\n{link}\n'
+        # PHP dosyasını oluştur/güncelle
+        write_php_file(slug, link)
         print("✅ OK")
 
-    # Ana playlist'i kaydet
+    # -------- SABİT PLAYLİST OLUŞTUR (SADECE PHP DOSYALARINA İŞARET EDER) --------
+    # Bu dosya her seferinde aynı şekilde oluşturulur, değişmez.
+    # İçinde kanal adları ve PHP dosyalarının raw URL'leri yer alır.
+    ana_m3u = "#EXTM3U\n"
+    for slug, isim, _ in kanallar:
+        php_url = f"{GITHUB_RAW_BASE}/{CHANNELS_DIR}/{slug}.php"
+        ana_m3u += f'#EXTINF:-1 tvg-name="{isim}" group-title="Canlı" http-user-agent="{USER_AGENT}",{isim}\n{php_url}\n'
+
     with open(PLAYLIST_FILE, "w", encoding="utf-8") as f:
         f.write(ana_m3u)
 
-    print(f"\n📁 Yedek dosyalar '{STREAMS_DIR}/' klasörüne, ana playlist '{PLAYLIST_FILE}' dosyasına kaydedildi.")
+    print(f"\n📁 PHP dosyaları '{CHANNELS_DIR}/' klasörüne kaydedildi.")
+    print(f"📁 Ana playlist '{PLAYLIST_FILE}' dosyasına kaydedildi (sabit içerik).")
 
     # Git push
     git_push()
