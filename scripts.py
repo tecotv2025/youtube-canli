@@ -37,7 +37,8 @@ kanallar = [
 STREAMS_DIR = "streams"
 PLAYLIST_FILE = "playlist.m3u"
 USER_AGENT = "VLC/3.0.20"
-YT_DLP_TIMEOUT = 60  # 30 yerine 60 saniye (zaman aşımını artırdık)
+YT_DLP_TIMEOUT = 60
+GITHUB_RAW_BASE = "https://raw.githubusercontent.com/tecotv2025/youtube-canli/main"  # Kendi repo adresinizle değiştirin
 
 # yt-dlp yolunu bul
 YT_DLP = shutil.which("yt-dlp")
@@ -47,7 +48,7 @@ if not YT_DLP:
 
 # -------------------- FONKSİYONLAR --------------------
 def get_live_url(youtube_url):
-    """YouTube canlı yayın URL'sini alır. (geo-bypass eklendi)"""
+    """YouTube canlı yayın URL'sini alır."""
     try:
         result = subprocess.run(
             [YT_DLP, "--geo-bypass", "-f", "best", "-g", youtube_url],
@@ -80,20 +81,16 @@ def write_channel_file(slug, name, url):
 def git_push():
     """Değişiklikleri commit'leyip push'lar."""
     try:
-        # Git config (sadece repo-local)
         subprocess.run(["git", "config", "user.name", "Lokal Sunucu Proxy"], check=True, capture_output=True)
         subprocess.run(["git", "config", "user.email", "sunucu@proxy.local"], check=True, capture_output=True)
 
-        # Değişiklik var mı?
         status = subprocess.run(["git", "status", "--porcelain"], capture_output=True, text=True)
         if not status.stdout.strip():
             print("📭 Hiç değişiklik yok, commit atlanıyor.")
             return
 
-        # Add
         subprocess.run(["git", "add", "-A"], check=True, capture_output=True)
 
-        # Commit (boş commit'i engelle)
         commit_msg = f"Otomatik güncelleme - {datetime.now().strftime('%Y-%m-%d %H:%M')}"
         commit = subprocess.run(
             ["git", "commit", "-m", commit_msg],
@@ -107,11 +104,9 @@ def git_push():
             else:
                 raise subprocess.CalledProcessError(commit.returncode, "git commit", commit.stderr)
 
-        # Aktif dal
         branch = subprocess.run(["git", "branch", "--show-current"], capture_output=True, text=True)
         aktif_dal = branch.stdout.strip() or "main"
 
-        # Push
         subprocess.run(["git", "push", "origin", aktif_dal], check=True, capture_output=True)
         print(f"\n🚀 GitHub yüklemesi '{aktif_dal}' dalına başarıyla tamamlandı!")
 
@@ -125,6 +120,8 @@ def git_push():
 # -------------------- ANA PROGRAM --------------------
 def main():
     os.makedirs(STREAMS_DIR, exist_ok=True)
+    
+    # Playlist başlığı ve satır sonu
     ana_m3u = "#EXTM3U\n"
     print("📡 Kanal linkleri toplanıyor...\n")
 
@@ -135,15 +132,19 @@ def main():
             print(f"❌ {hata}")
             continue
 
-        # Dosyayı yaz (streams/slug.m3u8)
+        # 1. Kanalın kendi .m3u8 dosyasını oluştur
         write_channel_file(slug, isim, link)
 
-        # --- ANA PLAYLIST'E YEREL DOSYA YOLU EKLE (URL DEĞİL) ---
-        dosya_yolu = f"{STREAMS_DIR}/{slug}.m3u8"
-        ana_m3u += f'#EXTINF:-1 tvg-name="{isim}" group-title="Canlı" http-user-agent="{USER_AGENT}",{isim}\n{dosya_yolu}\n'
+        # 2. Ana playlist'e TiviMate uyumlu satırları ekle
+        #    - Her kanal ayrı bir #EXTINF satırı
+        #    - URL olarak GitHub raw linki (göreceli değil)
+        #    - User-Agent'ı URL sonuna | ile ekle
+        dosya_url = f"{GITHUB_RAW_BASE}/{STREAMS_DIR}/{slug}.m3u8"
+        ana_m3u += f'#EXTINF:-1 tvg-name="{isim}" group-title="Canlı",{isim}\n'
+        ana_m3u += f'{dosya_url}|User-Agent={USER_AGENT}\n'
         print("✅ OK")
 
-    # Ana playlist'i kaydet
+    # Ana playlist'i yaz
     with open(PLAYLIST_FILE, "w", encoding="utf-8") as f:
         f.write(ana_m3u)
 
