@@ -34,12 +34,12 @@ kanallar = [
 ]
 
 # -------------------- AYARLAR --------------------
-STREAMS_DIR = "streams"
+STREAMS_DIR = "streams"          # Yedek dosyalar için (isteğe bağlı)
 PLAYLIST_FILE = "playlist.m3u"
 USER_AGENT = "VLC/3.0.20"
-YT_DLP_TIMEOUT = 60
-GITHUB_RAW_BASE = "https://raw.githubusercontent.com/tecotv2025/youtube-canli/main"  # Repo adresiniz
+YT_DLP_TIMEOUT = 60              # Zaman aşımını artırdım (bazı kanallar yavaş)
 
+# yt-dlp yolunu bul
 YT_DLP = shutil.which("yt-dlp")
 if not YT_DLP:
     print("❌ yt-dlp bulunamadı! Lütfen yt-dlp'yi kurun: pip install yt-dlp")
@@ -47,7 +47,9 @@ if not YT_DLP:
 
 # -------------------- FONKSİYONLAR --------------------
 def get_live_url(youtube_url):
+    """YouTube canlı yayın URL'sini alır."""
     try:
+        # --geo-bypass eklendi, coğrafi engelleri aşmak için
         result = subprocess.run(
             [YT_DLP, "--geo-bypass", "-f", "best", "-g", youtube_url],
             capture_output=True,
@@ -66,6 +68,7 @@ def get_live_url(youtube_url):
         return None, str(e)
 
 def write_channel_file(slug, name, url):
+    """Her kanal için ayrı .m3u8 dosyası oluşturur (yedek amaçlı)."""
     content = f"""#EXTM3U
 #EXTINF:-1 tvg-name="{name}" http-user-agent="{USER_AGENT}",{name}
 {url}
@@ -76,6 +79,7 @@ def write_channel_file(slug, name, url):
     return filepath
 
 def git_push():
+    """Değişiklikleri commit'leyip push'lar."""
     try:
         subprocess.run(["git", "config", "user.name", "Lokal Sunucu Proxy"], check=True, capture_output=True)
         subprocess.run(["git", "config", "user.email", "sunucu@proxy.local"], check=True, capture_output=True)
@@ -126,18 +130,20 @@ def main():
             print(f"❌ {hata}")
             continue
 
+        # Yedek dosyayı oluştur (isteğe bağlı, kullanmasanız da olur)
         write_channel_file(slug, isim, link)
 
-        # TiviMate uyumlu: #EXTINF içinde http-user-agent, URL'de | yok
-        dosya_url = f"{GITHUB_RAW_BASE}/{STREAMS_DIR}/{slug}.m3u8"
-        ana_m3u += f'#EXTINF:-1 tvg-name="{isim}" group-title="Canlı" http-user-agent="{USER_AGENT}",{isim}\n'
-        ana_m3u += f'{dosya_url}\n'
+        # 🟢 Ana playlist'e DOĞRUDAN YouTube URL'sini ekle (TiviMate bunu seviyor)
+        ana_m3u += f'#EXTINF:-1 tvg-name="{isim}" group-title="Canlı" http-user-agent="{USER_AGENT}",{isim}\n{link}\n'
         print("✅ OK")
 
+    # Ana playlist'i kaydet
     with open(PLAYLIST_FILE, "w", encoding="utf-8") as f:
         f.write(ana_m3u)
 
-    print(f"\n📁 Dosyalar '{STREAMS_DIR}/' klasörüne ve '{PLAYLIST_FILE}' dosyasına kaydedildi.")
+    print(f"\n📁 Yedek dosyalar '{STREAMS_DIR}/' klasörüne, ana playlist '{PLAYLIST_FILE}' dosyasına kaydedildi.")
+
+    # Git push
     git_push()
 
 if __name__ == "__main__":
