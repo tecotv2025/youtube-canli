@@ -16,6 +16,14 @@ var Channels = map[string]Channel{
 		Group: "Haber",
 	},
 
+        "akittv": {
+                Slug:  "akittv",
+                Name:  "Akit Tv",
+                URL:   "https://www.youtube.com/@akittv/live",
+                Group: "Haber",
+        },
+
+
 	"cnnturk": {
 		Slug:  "cnnturk",
 		Name:  "CNN Türk",
