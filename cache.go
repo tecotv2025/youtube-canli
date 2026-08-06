@@ -20,7 +20,6 @@ var cache = Cache{
 }
 
 func GetCache(slug string) (string, bool) {
-
 	cache.mu.RLock()
 	item, ok := cache.items[slug]
 	cache.mu.RUnlock()
@@ -30,11 +29,9 @@ func GetCache(slug string) (string, bool) {
 	}
 
 	if time.Now().After(item.ExpiresAt) {
-
 		cache.mu.Lock()
 		delete(cache.items, slug)
 		cache.mu.Unlock()
-
 		return "", false
 	}
 
@@ -42,13 +39,10 @@ func GetCache(slug string) (string, bool) {
 }
 
 func SetCache(slug string, url string) {
-
 	cache.mu.Lock()
-
 	cache.items[slug] = CacheItem{
 		URL:       url,
 		ExpiresAt: time.Now().Add(CacheTTL),
 	}
-
 	cache.mu.Unlock()
 }
