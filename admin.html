@@ -1,0 +1,151 @@
+cat > admin.html << 'EOF'
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>yt-proxy Admin</title>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 900px; margin: 30px auto; padding: 0 20px; }
+        h1 { color: #333; }
+        table { width: 100%; border-collapse: collapse; margin: 20px 0; }
+        th, td { padding: 8px 12px; border: 1px solid #ddd; text-align: left; }
+        th { background: #f4f4f4; }
+        .form-group { margin: 10px 0; }
+        .form-group label { display: inline-block; width: 80px; }
+        .form-group input { width: 300px; padding: 6px; }
+        button { padding: 8px 16px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer; }
+        button:hover { background: #0056b3; }
+        .delete-btn { background: #dc3545; }
+        .delete-btn:hover { background: #a71d2a; }
+        .message { padding: 10px; margin: 10px 0; border-radius: 4px; }
+        .success { background: #d4edda; color: #155724; }
+        .error { background: #f8d7da; color: #721c24; }
+    </style>
+</head>
+<body>
+    <h1>📺 yt-proxy Admin Paneli</h1>
+    <div id="message"></div>
+
+    <h2>📋 Mevcut Kanallar</h2>
+    <table id="channelTable">
+        <thead>
+            <tr><th>Slug</th><th>İsim</th><th>URL</th><th>Grup</th><th>İşlem</th></tr>
+        </thead>
+        <tbody id="channelList"></tbody>
+    </table>
+
+    <h2>➕ Yeni Kanal Ekle</h2>
+    <form id="addForm">
+        <div class="form-group">
+            <label>Slug:</label>
+            <input type="text" id="slug" placeholder="örnek: kanal-adı" required>
+        </div>
+        <div class="form-group">
+            <label>İsim:</label>
+            <input type="text" id="name" placeholder="Kanal Adı" required>
+        </div>
+        <div class="form-group">
+            <label>URL:</label>
+            <input type="url" id="url" placeholder="https://www.youtube.com/@kanal/live" required>
+        </div>
+        <div class="form-group">
+            <label>Grup:</label>
+            <input type="text" id="group" placeholder="Haber / Spor / Ekonomi" required>
+        </div>
+        <button type="submit">Ekle</button>
+    </form>
+
+    <script>
+        const urlParams = new URLSearchParams(window.location.search);
+        const token = urlParams.get('token');
+        if (!token) {
+            document.getElementById('message').innerHTML = '<div class="error">❌ Token eksik! URL\'ye ?token=... ekleyin.</div>';
+        }
+
+        const API_BASE = '/admin/channels';
+
+        function showMessage(text, type) {
+            const el = document.getElementById('message');
+            el.innerHTML = '<div class="' + type + '">' + text + '</div>';
+            setTimeout(() => { el.innerHTML = ''; }, 3000);
+        }
+
+        async function loadChannels() {
+            try {
+                const res = await fetch(API_BASE + '?token=' + token);
+                if (!res.ok) throw new Error('Listeleme hatası: ' + res.status);
+                const data = await res.json();
+                const tbody = document.getElementById('channelList');
+                tbody.innerHTML = '';
+                data.forEach(ch => {
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `
+                        <td><strong>${ch.slug}</strong></td>
+                        <td>${ch.name}</td>
+                        <td style="font-size:0.85em;word-break:break-all;">${ch.url}</td>
+                        <td>${ch.group}</td>
+                        <td><button class="delete-btn" data-slug="${ch.slug}">Sil</button></td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+                document.querySelectorAll('.delete-btn').forEach(btn => {
+                    btn.addEventListener('click', async function() {
+                        const slug = this.dataset.slug;
+                        if (!confirm(slug + ' kanalını silmek istediğinize emin misiniz?')) return;
+                        try {
+                            const res = await fetch(API_BASE + '/delete/' + slug + '?token=' + token, {
+                                method: 'DELETE'
+                            });
+                            if (!res.ok) throw new Error('Silme hatası: ' + res.status);
+                            showMessage('✅ ' + slug + ' silindi.', 'success');
+                            loadChannels();
+                        } catch (err) {
+                            showMessage('❌ ' + err.message, 'error');
+                        }
+                    });
+                });
+            } catch (err) {
+                showMessage('❌ ' + err.message, 'error');
+            }
+        }
+
+        document.getElementById('addForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            const slug = document.getElementById('slug').value.trim();
+            const name = document.getElementById('name').value.trim();
+            const url = document.getElementById('url').value.trim();
+            const group = document.getElementById('group').value.trim();
+
+            if (!slug || !name || !url || !group) {
+                showMessage('Lütfen tüm alanları doldurun.', 'error');
+                return;
+            }
+
+            const payload = { slug, name, url, group };
+
+            try {
+                const res = await fetch(API_BASE + '/add?token=' + token, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                if (!res.ok) {
+                    const errText = await res.text();
+                    throw new Error(errText || res.status);
+                }
+                showMessage('✅ ' + slug + ' eklendi.', 'success');
+                this.reset();
+                loadChannels();
+            } catch (err) {
+                showMessage('❌ ' + err.message, 'error');
+            }
+        });
+
+        if (token) {
+            loadChannels();
+        }
+    </script>
+</body>
+</html>
+EOF
